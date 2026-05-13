@@ -7,6 +7,9 @@ use axum::{
     routing::{get, post},
 };
 use serde::{Deserialize, Serialize};
+use tower_http::trace::TraceLayer;
+use tracing::info_span;
+use tracing_subscriber::{layer::SubscriberExt, util::SubscriberInitExt};
 
 #[derive(Deserialize)]
 struct Pagination {
@@ -36,6 +39,19 @@ impl IntoResponse for ApiResponse {
 
 #[tokio::main]
 async fn main() {
+    tracing_subscriber::registry()
+        .with(
+            tracing_subscriber::EnvFilter::try_from_default_env().unwrap_or_else(|_| {
+                format!(
+                    "{}=debug,tower_http=debug,axum::rejection=trace",
+                    env!("CARGO_CRATE_NAME")
+                )
+                .into()
+            }),
+        )
+        .with(tracing_subscriber::fmt::layer())
+        .init();
+
     let user_routes = Router::new()
         .route("/", get(about))
         .route("/list", get(list_users))
@@ -45,7 +61,16 @@ async fn main() {
     let app = Router::new()
         .route("/", get(index))
         .route("/pages", get(list_items))
-        .nest("/users", user_routes);
+        .nest("/users", user_routes)
+        .layer(
+            TraceLayer::new_for_http().make_span_with(|request: &axum::http::Request<_>| {
+                info_span!(
+                    "http_request",
+                    method = %request.method(),
+                    uri = %request.uri(),
+                )
+            }),
+        );
 
     let listener = tokio::net::TcpListener::bind("0.0.0.0:3000").await.unwrap();
     println!("Listening on http://localhost:3000");
@@ -63,6 +88,8 @@ async fn greet_user(Path(name): Path<String>) -> ApiResponse {
 }
 
 async fn create_user(Json(input): Json<CreateUser>) -> ApiResponse {
+    tracing::info!("Attempting to create user: {}", input.email);
+
     ApiResponse::Message(
         StatusCode::CREATED,
         format!("Created user: {} ({})", input.name, input.email),
@@ -76,6 +103,8 @@ async fn list_items(Query(pagination): Query<Pagination>) -> String {
 }
 
 async fn list_users() -> ApiResponse {
+    tracing::info!("Attempting to fetch user data");
+
     ApiResponse::Json(vec![CreateUser {
         email: "alice@mail.com".into(),
         name: "Alice".into(),
