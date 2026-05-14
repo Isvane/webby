@@ -11,6 +11,9 @@ use tower_http::trace::TraceLayer;
 use tracing::info_span;
 use tracing_subscriber::{layer::SubscriberExt, util::SubscriberInitExt};
 
+#[cfg(test)]
+mod test;
+
 #[derive(Deserialize)]
 struct Pagination {
     page: Option<u32>,
@@ -18,9 +21,9 @@ struct Pagination {
 }
 
 #[derive(Deserialize, Serialize)]
-struct CreateUser {
-    name: String,
-    email: String,
+pub(crate) struct CreateUser {
+    pub(crate) name: String,
+    pub(crate) email: String,
 }
 
 enum ApiResponse {
@@ -59,7 +62,7 @@ async fn main() {
     axum::serve(listener, app).await.unwrap();
 }
 
-fn app() -> Router {
+pub(crate) fn app() -> Router {
     let user_routes = Router::new()
         .route("/", get(about))
         .route("/list", get(list_users))
@@ -113,146 +116,4 @@ async fn list_users() -> ApiResponse {
         email: "alice@mail.com".into(),
         name: "Alice".into(),
     }])
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-    use axum::{
-        body::Body,
-        http::{Request, StatusCode},
-    };
-    use tower::ServiceExt;
-
-    #[tokio::test]
-    async fn test_index_handler() {
-        let app = app();
-
-        let response = app
-            .oneshot(Request::builder().uri("/").body(Body::empty()).unwrap())
-            .await
-            .unwrap();
-
-        assert_eq!(response.status(), StatusCode::ACCEPTED);
-
-        let body = axum::body::to_bytes(response.into_body(), usize::MAX)
-            .await
-            .unwrap();
-        assert_eq!(&body[..], b"Goodbye, World!");
-    }
-
-    #[tokio::test]
-    async fn test_about_handler() {
-        let app = app();
-
-        let response = app
-            .oneshot(
-                Request::builder()
-                    .uri("/users")
-                    .body(Body::empty())
-                    .unwrap(),
-            )
-            .await
-            .unwrap();
-
-        assert_eq!(response.status(), StatusCode::OK);
-    }
-
-    #[tokio::test]
-    async fn test_greet_handler() {
-        let app = app();
-
-        let response = app
-            .oneshot(
-                Request::builder()
-                    .uri("/users/greet/isvane")
-                    .body(Body::empty())
-                    .unwrap(),
-            )
-            .await
-            .unwrap();
-
-        assert_eq!(response.status(), StatusCode::OK);
-
-        let body = axum::body::to_bytes(response.into_body(), usize::MAX)
-            .await
-            .unwrap();
-
-        assert_eq!(&body[..], b"Hello isvane")
-    }
-
-    #[tokio::test]
-    async fn test_create_user_handle() {
-        let app = app();
-
-        let response = app
-            .oneshot(
-                Request::builder()
-                    .method("POST")
-                    .uri("/users/create")
-                    .header("content-type", "application/json")
-                    .body(Body::from(
-                        r#"{"name": "Isvane", "email": "isvane@testmail.com"}"#,
-                    ))
-                    .unwrap(),
-            )
-            .await
-            .unwrap();
-
-        assert_eq!(response.status(), StatusCode::CREATED);
-
-        let body = axum::body::to_bytes(response.into_body(), usize::MAX)
-            .await
-            .unwrap();
-
-        assert_eq!(&body[..], b"Created user: Isvane (isvane@testmail.com)");
-    }
-
-    #[tokio::test]
-    async fn test_list_users_handle() {
-        let app = app();
-
-        let response = app
-            .oneshot(
-                Request::builder()
-                    .uri("/users/list")
-                    .body(Body::empty())
-                    .unwrap(),
-            )
-            .await
-            .unwrap();
-
-        assert_eq!(response.status(), StatusCode::OK);
-
-        let body = axum::body::to_bytes(response.into_body(), usize::MAX)
-            .await
-            .unwrap();
-
-        let users: Vec<CreateUser> = serde_json::from_slice(&body).unwrap();
-
-        assert_eq!(users.len(), 1);
-        assert_eq!(users[0].name, "Alice");
-        assert_eq!(users[0].email, "alice@mail.com");
-    }
-
-    #[tokio::test]
-    async fn test_list_items() {
-        let app = app();
-
-        let response = app
-            .oneshot(
-                Request::builder()
-                    .uri("/pages?page=2&per_page=50")
-                    .body(Body::empty())
-                    .unwrap(),
-            )
-            .await
-            .unwrap();
-
-        let body = axum::body::to_bytes(response.into_body(), usize::MAX)
-            .await
-            .unwrap();
-
-        assert_eq!(&body[..], b"Page 2, 50 items")
-    }
 }
