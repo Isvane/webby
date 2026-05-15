@@ -1,12 +1,13 @@
 use axum::{
     Json, Router,
-    extract::Path,
-    extract::Query,
+    extract::{Path, Query, State},
     http::StatusCode,
     response::{IntoResponse, Response},
     routing::{get, post},
 };
 use serde::{Deserialize, Serialize};
+use std::sync::Arc;
+use tokio::sync::Mutex;
 use tower_http::trace::TraceLayer;
 use tracing::info_span;
 use tracing_subscriber::{layer::SubscriberExt, util::SubscriberInitExt};
@@ -14,13 +15,18 @@ use tracing_subscriber::{layer::SubscriberExt, util::SubscriberInitExt};
 #[cfg(test)]
 mod test;
 
+#[derive(Clone)]
+struct AppState {
+    users: Arc<Mutex<Vec<CreateUser>>>,
+}
+
 #[derive(Deserialize)]
 struct Pagination {
     page: Option<u32>,
     per_page: Option<u32>,
 }
 
-#[derive(Deserialize, Serialize)]
+#[derive(Deserialize, Serialize, Clone)]
 pub(crate) struct CreateUser {
     pub(crate) name: String,
     pub(crate) email: String,
@@ -63,6 +69,10 @@ async fn main() {
 }
 
 pub(crate) fn app() -> Router {
+    let whatever = Arc::new(Mutex::new(Vec::new()));
+
+    let state = AppState { users: whatever };
+
     let user_routes = Router::new()
         .route("/", get(about))
         .route("/list", get(list_users))
@@ -82,11 +92,13 @@ pub(crate) fn app() -> Router {
                 )
             }),
         )
+        .with_state(state)
 }
 
 async fn index() -> (StatusCode, &'static str) {
     (StatusCode::ACCEPTED, "Goodbye, World!")
 }
+
 async fn about() -> (StatusCode, &'static str) {
     (StatusCode::OK, "I'm the user")
 }
@@ -94,8 +106,15 @@ async fn greet_user(Path(name): Path<String>) -> ApiResponse {
     ApiResponse::Message(StatusCode::OK, format!("Hello {name}"))
 }
 
-async fn create_user(Json(input): Json<CreateUser>) -> ApiResponse {
+async fn create_user(State(state): State<AppState>, Json(input): Json<CreateUser>) -> ApiResponse {
     tracing::info!("Attempting to create user: {}", input.email);
+
+    let mut users = state.users.lock().await;
+
+    users.push(CreateUser {
+        name: input.name.clone(),
+        email: input.email.clone(),
+    });
 
     ApiResponse::Message(
         StatusCode::CREATED,
@@ -109,11 +128,10 @@ async fn list_items(Query(pagination): Query<Pagination>) -> String {
     format!("Page {page}, {per_page} items")
 }
 
-async fn list_users() -> ApiResponse {
+async fn list_users(State(state): State<AppState>) -> ApiResponse {
     tracing::info!("Attempting to fetch user data");
 
-    ApiResponse::Json(vec![CreateUser {
-        email: "alice@mail.com".into(),
-        name: "Alice".into(),
-    }])
+    let users = state.users.lock().await;
+
+    ApiResponse::Json(users.clone())
 }

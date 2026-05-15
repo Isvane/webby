@@ -111,9 +111,7 @@ async fn test_list_users_handle() {
 
     let users: Vec<CreateUser> = serde_json::from_slice(&body).unwrap();
 
-    assert_eq!(users.len(), 1);
-    assert_eq!(users[0].name, "Alice");
-    assert_eq!(users[0].email, "alice@mail.com");
+    assert_eq!(users.len(), 0);
 }
 
 #[tokio::test]
