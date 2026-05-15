@@ -7,8 +7,9 @@ use axum::{
 };
 use serde::{Deserialize, Serialize};
 use std::sync::Arc;
-use tokio::sync::Mutex;
-use tower_http::trace::TraceLayer;
+use std::time::Duration;
+use tokio::{signal, sync::Mutex};
+use tower_http::{timeout::TimeoutLayer, trace::TraceLayer};
 use tracing::info_span;
 use tracing_subscriber::{layer::SubscriberExt, util::SubscriberInitExt};
 
@@ -58,14 +59,17 @@ async fn main() {
                 .into()
             }),
         )
-        .with(tracing_subscriber::fmt::layer())
+        .with(tracing_subscriber::fmt::layer().without_time())
         .init();
 
     let app = app();
 
     let listener = tokio::net::TcpListener::bind("0.0.0.0:3000").await.unwrap();
     println!("Listening on http://localhost:3000");
-    axum::serve(listener, app).await.unwrap();
+    axum::serve(listener, app)
+        .with_graceful_shutdown(shutdown_signal())
+        .await
+        .unwrap();
 }
 
 pub(crate) fn app() -> Router {
@@ -83,7 +87,7 @@ pub(crate) fn app() -> Router {
         .route("/", get(index))
         .route("/pages", get(list_items))
         .nest("/users", user_routes)
-        .layer(
+        .layer((
             TraceLayer::new_for_http().make_span_with(|request: &axum::http::Request<_>| {
                 info_span!(
                     "http_request",
@@ -91,7 +95,8 @@ pub(crate) fn app() -> Router {
                     uri = %request.uri(),
                 )
             }),
-        )
+            TimeoutLayer::with_status_code(StatusCode::REQUEST_TIMEOUT, Duration::from_secs(10)),
+        ))
         .with_state(state)
 }
 
@@ -134,4 +139,28 @@ async fn list_users(State(state): State<AppState>) -> ApiResponse {
     let users = state.users.lock().await;
 
     ApiResponse::Json(users.clone())
+}
+
+async fn shutdown_signal() {
+    let ctrl_c = async {
+        signal::ctrl_c()
+            .await
+            .expect("failed to install Ctrl+C handler");
+    };
+
+    #[cfg(unix)]
+    let terminate = async {
+        signal::unix::signal(signal::unix::SignalKind::terminate())
+            .expect("failed to install signal handler")
+            .recv()
+            .await;
+    };
+
+    #[cfg(not(unix))]
+    let terminate = std::future::pending::<()>();
+
+    tokio::select! {
+        _ = ctrl_c => {},
+        _ = terminate => {},
+    }
 }
