@@ -47,6 +47,18 @@ impl IntoResponse for ApiResponse {
     }
 }
 
+enum AppError {
+    EmailAlreadyExist(String),
+}
+
+impl IntoResponse for AppError {
+    fn into_response(self) -> Response {
+        match self {
+            Self::EmailAlreadyExist(msg) => (StatusCode::BAD_REQUEST, msg).into_response(),
+        }
+    }
+}
+
 #[tokio::main]
 async fn main() {
     tracing_subscriber::registry()
@@ -111,20 +123,29 @@ async fn greet_user(Path(name): Path<String>) -> ApiResponse {
     ApiResponse::Message(StatusCode::OK, format!("Hello {name}"))
 }
 
-async fn create_user(State(state): State<AppState>, Json(input): Json<CreateUser>) -> ApiResponse {
+async fn create_user(
+    State(state): State<AppState>,
+    Json(input): Json<CreateUser>,
+) -> Result<ApiResponse, AppError> {
     tracing::info!("Attempting to create user: {}", input.email);
 
     let mut users = state.users.lock().await;
+
+    if users.iter().any(|user| user.email == input.email) {
+        return Err(AppError::EmailAlreadyExist(
+            "User with this email already exist".to_string(),
+        ));
+    }
 
     users.push(CreateUser {
         name: input.name.clone(),
         email: input.email.clone(),
     });
 
-    ApiResponse::Message(
+    Ok(ApiResponse::Message(
         StatusCode::CREATED,
         format!("Created user: {} ({})", input.name, input.email),
-    )
+    ))
 }
 
 async fn list_items(Query(pagination): Query<Pagination>) -> String {
