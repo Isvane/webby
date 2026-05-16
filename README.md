@@ -1,25 +1,31 @@
 # Webby
 
-This is a simple project I’m using to get my hands dirty with Axum, a web framework for the Rust programming language.
+`Webby` is a high-performance backend sandbox built to master asynchronous web services using **Axum** and the **Tokio** runtime in Rust. 
+Rather than building a generic tutorial app, this repository serves as a laboratory for implementing backend patterns, concurrent state management, and system infrastructure.
 
-## What is this?
+## Features
 
-It’s a sandbox. There is no grand master plan or end product in mind here.
+*   **Asynchronous Shared State:** Implemented thread-safe, in-memory user data management using concurrent state patterns across asynchronous worker threads.
+*   **Production-Grade Middleware:** Integrated request tracing and diagnostics utilizing `tower-http` and `TraceLayer` for structured logging.
+*   **Type-Safe Routing:** Designed robust, nested REST API endpoints with strict JSON payload extraction and type-safe `ApiResponse` enums.
+*   **Infrastructure Resilience:** Engineered cross-platform graceful shutdown logic to capture system signals (SIGINT/SIGTERM) and cleanly drain active connections.
+*   **Automated Testing:** Built a decoupled unit-testing suite (`test.rs`) to validate API endpoint behaviors and status codes.
 
-I'm currently exploring how to:
-- Route different web requests.
-- Handle user data (like names and emails).
-- Work with "nested" paths (organizing different parts of the site).
-- Manage basic responses, like simple text or data-heavy lists.
+## The Tech Stack
 
-## Why am i doing this?
+*   **Language:** Rust
+*   **Web Framework:** Axum
+*   **Async Runtime:** Tokio
+*   **Observability:** Tower-HTTP (Tracing/Logging)
 
-To learn! Rust can be a bit of a mountain to climb, and Axum is one of the most popular ways to build web servers with it. 
-I’m just seeing "where it goes", poking the code, seeing what breaks, and figuring out how it all fits together.
+## Learning Objectives Achieved
 
-## Getting started
+This project was built to transition theoretical knowledge from *Rustlings* (specifically smart pointers, and concurrency) into a practical, bulletproof backend service. Key takeaways included managing the borrow checker across async boundaries and handling thread synchronization without data races.
+
+## Getting Started
+
+Ensure you have the Rust toolchain installed, then spin up the server locally:
 
 ```bash
-# The server will start at http://localhost:3000.
+# The server will initialize and listen at http://localhost:3000
 cargo run
-```
