@@ -16,9 +16,9 @@ use tracing_subscriber::{layer::SubscriberExt, util::SubscriberInitExt};
 #[cfg(test)]
 mod test;
 
-#[derive(Clone)]
+#[derive()]
 struct AppState {
-    users: Arc<Mutex<Vec<CreateUser>>>,
+    users: Mutex<Vec<User>>,
 }
 
 #[derive(Deserialize)]
@@ -27,14 +27,20 @@ struct Pagination {
     per_page: Option<u32>,
 }
 
-#[derive(Deserialize, Serialize, Clone)]
+#[derive(Deserialize)]
 pub(crate) struct CreateUser {
     pub(crate) name: String,
     pub(crate) email: String,
 }
 
+#[derive(Serialize, Clone)]
+pub(crate) struct User {
+    pub(crate) name: String,
+    pub(crate) email: String,
+}
+
 enum ApiResponse {
-    Json(Vec<CreateUser>),
+    Json(Vec<User>),
     Message(StatusCode, String),
 }
 
@@ -85,9 +91,9 @@ async fn main() {
 }
 
 pub(crate) fn app() -> Router {
-    let whatever = Arc::new(Mutex::new(Vec::new()));
+    let whatever = Mutex::new(Vec::new());
 
-    let state = AppState { users: whatever };
+    let state = Arc::new(AppState { users: whatever });
 
     let user_routes = Router::new()
         .route("/", get(about))
@@ -124,11 +130,12 @@ async fn greet_user(Path(name): Path<String>) -> ApiResponse {
 }
 
 async fn create_user(
-    State(state): State<AppState>,
+    State(state): State<Arc<AppState>>,
     Json(input): Json<CreateUser>,
 ) -> Result<ApiResponse, AppError> {
     tracing::info!("Attempting to create user: {}", input.email);
 
+    // using normal std::sync::Mutex maybe is more efficient for this case but I'll do this for learning.
     let mut users = state.users.lock().await;
 
     if users.iter().any(|user| user.email == input.email) {
@@ -137,15 +144,14 @@ async fn create_user(
         ));
     }
 
-    users.push(CreateUser {
-        name: input.name.clone(),
-        email: input.email.clone(),
+    let message = format!("Created user: {} ({})", input.name, input.email);
+
+    users.push(User {
+        name: input.name,
+        email: input.email,
     });
 
-    Ok(ApiResponse::Message(
-        StatusCode::CREATED,
-        format!("Created user: {} ({})", input.name, input.email),
-    ))
+    Ok(ApiResponse::Message(StatusCode::CREATED, message))
 }
 
 async fn list_items(Query(pagination): Query<Pagination>) -> String {
@@ -154,12 +160,14 @@ async fn list_items(Query(pagination): Query<Pagination>) -> String {
     format!("Page {page}, {per_page} items")
 }
 
-async fn list_users(State(state): State<AppState>) -> ApiResponse {
+async fn list_users(State(state): State<Arc<AppState>>) -> ApiResponse {
     tracing::info!("Attempting to fetch user data");
 
     let users = state.users.lock().await;
+    let data = users.clone();
+    drop(users);
 
-    ApiResponse::Json(users.clone())
+    ApiResponse::Json(data)
 }
 
 async fn shutdown_signal() {
