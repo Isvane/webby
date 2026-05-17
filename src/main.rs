@@ -7,6 +7,7 @@ use axum::{
 };
 use serde::{Deserialize, Serialize};
 use std::sync::Arc;
+use std::sync::atomic::{AtomicUsize, Ordering};
 use std::time::Duration;
 use tokio::{signal, sync::Mutex};
 use tower_http::{timeout::TimeoutLayer, trace::TraceLayer};
@@ -37,6 +38,7 @@ pub(crate) struct CreateUser {
 pub(crate) struct User {
     pub(crate) name: String,
     pub(crate) email: String,
+    pub(crate) id: usize,
 }
 
 enum ApiResponse {
@@ -64,6 +66,8 @@ impl IntoResponse for AppError {
         }
     }
 }
+
+static GLOBAL_ID_COUNTER: AtomicUsize = AtomicUsize::new(1);
 
 #[tokio::main]
 async fn main() {
@@ -144,11 +148,14 @@ async fn create_user(
         ));
     }
 
+    let next_id = GLOBAL_ID_COUNTER.fetch_add(1, Ordering::Relaxed);
+
     let message = format!("Created user: {} ({})", input.name, input.email);
 
     users.push(User {
         name: input.name,
         email: input.email,
+        id: next_id,
     });
 
     Ok(ApiResponse::Message(StatusCode::CREATED, message))
