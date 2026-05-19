@@ -6,10 +6,10 @@ use axum::{
     routing::{get, post},
 };
 use serde::{Deserialize, Serialize};
-use std::sync::Arc;
 use std::sync::atomic::{AtomicUsize, Ordering};
+use std::sync::{Arc, RwLock};
 use std::time::Duration;
-use tokio::{signal, sync::Mutex};
+use tokio::signal;
 use tower_http::{timeout::TimeoutLayer, trace::TraceLayer};
 use tracing::info_span;
 use tracing_subscriber::{layer::SubscriberExt, util::SubscriberInitExt};
@@ -17,9 +17,8 @@ use tracing_subscriber::{layer::SubscriberExt, util::SubscriberInitExt};
 #[cfg(test)]
 mod test;
 
-#[derive()]
 struct AppState {
-    users: Mutex<Vec<User>>,
+    users: RwLock<Vec<User>>,
 }
 
 #[derive(Deserialize)]
@@ -95,7 +94,7 @@ async fn main() {
 }
 
 pub(crate) fn app() -> Router {
-    let whatever = Mutex::new(Vec::new());
+    let whatever = RwLock::new(Vec::new());
 
     let state = Arc::new(AppState { users: whatever });
 
@@ -139,8 +138,7 @@ async fn create_user(
 ) -> Result<ApiResponse, AppError> {
     tracing::info!("Attempting to create user: {}", input.email);
 
-    // using normal std::sync::Mutex maybe is more efficient for this case but I'll do this for learning.
-    let mut users = state.users.lock().await;
+    let mut users = state.users.write().unwrap();
 
     if users.iter().any(|user| user.email == input.email) {
         return Err(AppError::EmailAlreadyExist(
@@ -170,11 +168,9 @@ async fn list_items(Query(pagination): Query<Pagination>) -> String {
 async fn list_users(State(state): State<Arc<AppState>>) -> ApiResponse {
     tracing::info!("Attempting to fetch user data");
 
-    let users = state.users.lock().await;
-    let data = users.clone();
-    drop(users);
+    let users = state.users.read().unwrap();
 
-    ApiResponse::Json(data)
+    ApiResponse::Json(users.clone())
 }
 
 async fn shutdown_signal() {
