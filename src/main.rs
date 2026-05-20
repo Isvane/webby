@@ -13,6 +13,7 @@ use tokio::signal;
 use tower_http::{timeout::TimeoutLayer, trace::TraceLayer};
 use tracing::info_span;
 use tracing_subscriber::{layer::SubscriberExt, util::SubscriberInitExt};
+use validator::Validate;
 
 #[cfg(test)]
 mod test;
@@ -27,9 +28,11 @@ struct Pagination {
     per_page: Option<u32>,
 }
 
-#[derive(Deserialize)]
+#[derive(Deserialize, Validate)]
 pub(crate) struct CreateUser {
+    #[validate(length(min = 1, message = "Name cannot be empty"))]
     pub(crate) name: String,
+    #[validate(email(message = "Invalid email address"))]
     pub(crate) email: String,
 }
 
@@ -56,12 +59,14 @@ impl IntoResponse for ApiResponse {
 
 enum AppError {
     EmailAlreadyExist(String),
+    InvalidInput(String),
 }
 
 impl IntoResponse for AppError {
     fn into_response(self) -> Response {
         match self {
             Self::EmailAlreadyExist(msg) => (StatusCode::BAD_REQUEST, msg).into_response(),
+            Self::InvalidInput(msg) => (StatusCode::UNPROCESSABLE_ENTITY, msg).into_response(),
         }
     }
 }
@@ -136,6 +141,10 @@ async fn create_user(
     State(state): State<Arc<AppState>>,
     Json(input): Json<CreateUser>,
 ) -> Result<ApiResponse, AppError> {
+    if let Err(errors) = input.validate() {
+        return Err(AppError::InvalidInput(errors.to_string()));
+    }
+
     tracing::info!("Attempting to create user: {}", input.email);
 
     let mut users = state.users.write().unwrap();
