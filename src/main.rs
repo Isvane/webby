@@ -10,7 +10,11 @@ use std::sync::atomic::{AtomicUsize, Ordering};
 use std::sync::{Arc, RwLock};
 use std::time::Duration;
 use tokio::signal;
-use tower_http::{timeout::TimeoutLayer, trace::TraceLayer};
+use tower_http::{
+    services::{ServeDir, ServeFile},
+    timeout::TimeoutLayer,
+    trace::TraceLayer,
+};
 use tracing::info_span;
 use tracing_subscriber::{layer::SubscriberExt, util::SubscriberInitExt};
 use validator::Validate;
@@ -99,9 +103,9 @@ async fn main() {
 }
 
 pub(crate) fn app() -> Router {
-    let whatever = RwLock::new(Vec::new());
+    let user_db = RwLock::new(Vec::new());
 
-    let state = Arc::new(AppState { users: whatever });
+    let state = Arc::new(AppState { users: user_db });
 
     let user_routes = Router::new()
         .route("/", get(about))
@@ -113,6 +117,10 @@ pub(crate) fn app() -> Router {
         .route("/", get(index))
         .route("/pages", get(list_items))
         .nest("/users", user_routes)
+        .nest_service("/assets", ServeDir::new("public"))
+        .fallback_service(
+            ServeDir::new("public").not_found_service(ServeFile::new("public/index.html")),
+        )
         .layer((
             TraceLayer::new_for_http().make_span_with(|request: &axum::http::Request<_>| {
                 info_span!(
