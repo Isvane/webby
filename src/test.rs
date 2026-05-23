@@ -2,6 +2,7 @@ use super::*;
 use axum::{
     body::Body,
     http::{Request, StatusCode},
+    response,
 };
 use tower::ServiceExt;
 
@@ -133,4 +134,60 @@ async fn test_list_items() {
         .unwrap();
 
     assert_eq!(&body[..], b"Page 2, 50 items")
+}
+
+#[tokio::test]
+async fn test_validator_name() {
+    let app = app();
+
+    let response = app
+        .oneshot(
+            Request::builder()
+                .method("POST")
+                .uri("/users/create")
+                .header("content-type", "application/json")
+                .body(Body::from(
+                    r#"{"name": "", "email": "Isvane@testmail.com"}"#,
+                ))
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+
+    assert_eq!(response.status(), StatusCode::UNPROCESSABLE_ENTITY);
+
+    let body = axum::body::to_bytes(response.into_body(), usize::MAX)
+        .await
+        .unwrap();
+
+    let body_string = String::from_utf8(body.to_vec()).unwrap();
+
+    assert!(body_string.contains("Name cannot be empty"));
+}
+
+#[tokio::test]
+async fn test_validator_email() {
+    let app = app();
+
+    let response = app
+        .oneshot(
+            Request::builder()
+                .method("POST")
+                .uri("/users/create")
+                .header("content-type", "application/json")
+                .body(Body::from(r#"{"name": "Isvane", "email": "not-email"}"#))
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+
+    assert_eq!(response.status(), StatusCode::UNPROCESSABLE_ENTITY);
+
+    let body = axum::body::to_bytes(response.into_body(), usize::MAX)
+        .await
+        .unwrap();
+
+    let body_string = String::from_utf8(body.to_vec()).unwrap();
+
+    assert!(body_string.contains("Invalid email address"));
 }
