@@ -3,7 +3,7 @@ use axum::{
     extract::{Path, Query, State},
     http::StatusCode,
     response::{IntoResponse, Response},
-    routing::{get, post},
+    routing::{delete, get, post},
 };
 use serde::{Deserialize, Serialize};
 use std::sync::atomic::{AtomicUsize, Ordering};
@@ -64,6 +64,7 @@ impl IntoResponse for ApiResponse {
 enum AppError {
     EmailAlreadyExist(String),
     InvalidInput(String),
+    UserNotFound(String),
 }
 
 impl IntoResponse for AppError {
@@ -71,6 +72,7 @@ impl IntoResponse for AppError {
         match self {
             Self::EmailAlreadyExist(msg) => (StatusCode::BAD_REQUEST, msg).into_response(),
             Self::InvalidInput(msg) => (StatusCode::UNPROCESSABLE_ENTITY, msg).into_response(),
+            Self::UserNotFound(msg) => (StatusCode::NOT_FOUND, msg).into_response(),
         }
     }
 }
@@ -111,6 +113,7 @@ pub(crate) fn app() -> Router {
         .route("/", get(about))
         .route("/list", get(list_users))
         .route("/create", post(create_user))
+        .route("/delete/{id}", delete(delete_user))
         .route("/greet/{name}", get(greet_user));
 
     Router::new()
@@ -143,6 +146,24 @@ async fn about() -> (StatusCode, &'static str) {
 }
 async fn greet_user(Path(name): Path<String>) -> ApiResponse {
     ApiResponse::Message(StatusCode::OK, format!("Hello {name}"))
+}
+
+async fn delete_user(
+    State(state): State<Arc<AppState>>,
+    Path(id): Path<usize>,
+) -> Result<ApiResponse, AppError> {
+    let mut users = state.users.write().unwrap();
+
+    if let Some(idx) = users.iter().position(|user| user.id == id) {
+        let message = format!("Deleted user: {}", id);
+
+        users.remove(idx);
+        Ok(ApiResponse::Message(StatusCode::OK, message))
+    } else {
+        return Err(AppError::UserNotFound(
+            "User with that ID not found".to_string(),
+        ));
+    }
 }
 
 async fn create_user(
