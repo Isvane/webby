@@ -160,9 +160,9 @@ async fn delete_user(
         users.remove(idx);
         Ok(ApiResponse::Message(StatusCode::OK, message))
     } else {
-        return Err(AppError::UserNotFound(
+        Err(AppError::UserNotFound(
             "User with that ID not found".to_string(),
-        ));
+        ))
     }
 }
 
