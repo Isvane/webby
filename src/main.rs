@@ -6,8 +6,7 @@ use axum::{
     routing::{delete, get, post},
 };
 use serde::{Deserialize, Serialize};
-use std::sync::atomic::{AtomicUsize, Ordering};
-use std::sync::{Arc, RwLock};
+use std::sync::Arc;
 use std::time::Duration;
 use tokio::signal;
 use tower_http::{
@@ -22,8 +21,19 @@ use validator::Validate;
 #[cfg(test)]
 mod test;
 
+#[derive(Debug, toasty::Model, Serialize, Deserialize, Clone)]
+pub(crate) struct User {
+    #[key]
+    #[auto]
+    pub(crate) id: u64,
+    pub(crate) name: String,
+
+    #[unique]
+    pub(crate) email: String,
+}
+
 struct AppState {
-    users: RwLock<Vec<User>>,
+    db: toasty::db::Db,
 }
 
 #[derive(Deserialize)]
@@ -38,13 +48,6 @@ pub(crate) struct CreateUser {
     pub(crate) name: String,
     #[validate(email(message = "Invalid email address"))]
     pub(crate) email: String,
-}
-
-#[derive(Serialize, Clone)]
-pub(crate) struct User {
-    pub(crate) name: String,
-    pub(crate) email: String,
-    pub(crate) id: usize,
 }
 
 enum ApiResponse {
@@ -65,6 +68,7 @@ enum AppError {
     EmailAlreadyExist(String),
     InvalidInput(String),
     UserNotFound(String),
+    InternalDbError(String),
 }
 
 impl IntoResponse for AppError {
@@ -73,11 +77,16 @@ impl IntoResponse for AppError {
             Self::EmailAlreadyExist(msg) => (StatusCode::BAD_REQUEST, msg).into_response(),
             Self::InvalidInput(msg) => (StatusCode::UNPROCESSABLE_ENTITY, msg).into_response(),
             Self::UserNotFound(msg) => (StatusCode::NOT_FOUND, msg).into_response(),
+            Self::InternalDbError(msg) => (StatusCode::INTERNAL_SERVER_ERROR, msg).into_response(),
         }
     }
 }
 
-static GLOBAL_ID_COUNTER: AtomicUsize = AtomicUsize::new(1);
+impl From<toasty::Error> for AppError {
+    fn from(err: toasty::Error) -> Self {
+        AppError::InternalDbError(err.to_string())
+    }
+}
 
 #[tokio::main]
 async fn main() {
@@ -94,7 +103,17 @@ async fn main() {
         .with(tracing_subscriber::fmt::layer().without_time())
         .init();
 
-    let app = app();
+    let db = toasty::Db::builder()
+        .models(toasty::models!(crate::*))
+        .connect("sqlite::memory:")
+        .await
+        .expect("Failed to connect to database");
+
+    db.push_schema()
+        .await
+        .expect("Failed to sync database schema");
+
+    let app = app(db);
 
     let listener = tokio::net::TcpListener::bind("0.0.0.0:3000").await.unwrap();
     println!("Listening on http://localhost:3000");
@@ -104,10 +123,8 @@ async fn main() {
         .unwrap();
 }
 
-pub(crate) fn app() -> Router {
-    let user_db = RwLock::new(Vec::new());
-
-    let state = Arc::new(AppState { users: user_db });
+pub(crate) fn app(db: toasty::db::Db) -> Router {
+    let state = Arc::new(AppState { db });
 
     let user_routes = Router::new()
         .route("/", get(about))
@@ -150,20 +167,20 @@ async fn greet_user(Path(name): Path<String>) -> ApiResponse {
 
 async fn delete_user(
     State(state): State<Arc<AppState>>,
-    Path(id): Path<usize>,
+    Path(id): Path<u64>,
 ) -> Result<ApiResponse, AppError> {
-    let mut users = state.users.write().unwrap();
+    let mut db = state.db.clone();
 
-    if let Some(idx) = users.iter().position(|user| user.id == id) {
-        let message = format!("Deleted user: {}", id);
+    let user = User::get_by_id(&mut db, &id)
+        .await
+        .map_err(|_| AppError::UserNotFound("User with that ID not found".to_string()))?;
 
-        users.remove(idx);
-        Ok(ApiResponse::Message(StatusCode::OK, message))
-    } else {
-        Err(AppError::UserNotFound(
-            "User with that ID not found".to_string(),
-        ))
-    }
+    user.delete().exec(&mut db).await?;
+
+    Ok(ApiResponse::Message(
+        StatusCode::OK,
+        format!("Deleted user: {id}"),
+    ))
 }
 
 async fn create_user(
@@ -176,24 +193,19 @@ async fn create_user(
 
     tracing::info!("Attempting to create user: {}", input.email);
 
-    let mut users = state.users.write().unwrap();
+    let mut db = state.db.clone();
 
-    if users.iter().any(|user| user.email == input.email) {
+    if User::get_by_email(&mut db, &input.email).await.is_ok() {
         return Err(AppError::EmailAlreadyExist(
-            "User with this email already exist".to_string(),
+            "User with this email already exists".to_string(),
         ));
     }
 
-    let next_id = GLOBAL_ID_COUNTER.fetch_add(1, Ordering::Relaxed);
+    let CreateUser { name, email } = input;
 
-    let message = format!("Created user: {} ({})", input.name, input.email);
+    let _new_user = toasty::create!(User { name, email }).exec(&mut db).await?;
 
-    users.push(User {
-        name: input.name,
-        email: input.email,
-        id: next_id,
-    });
-
+    let message = "Created user successfully".to_string();
     Ok(ApiResponse::Message(StatusCode::CREATED, message))
 }
 
@@ -203,12 +215,13 @@ async fn list_items(Query(pagination): Query<Pagination>) -> String {
     format!("Page {page}, {per_page} items")
 }
 
-async fn list_users(State(state): State<Arc<AppState>>) -> ApiResponse {
+async fn list_users(State(state): State<Arc<AppState>>) -> Result<ApiResponse, AppError> {
     tracing::info!("Attempting to fetch user data");
+    let mut db = state.db.clone();
 
-    let users = state.users.read().unwrap();
+    let users = User::all().exec(&mut db).await?;
 
-    ApiResponse::Json(users.clone())
+    Ok(ApiResponse::Json(users))
 }
 
 async fn shutdown_signal() {

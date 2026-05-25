@@ -5,9 +5,23 @@ use axum::{
 };
 use tower::ServiceExt;
 
+async fn setup_test_app() -> axum::Router {
+    let db = toasty::Db::builder()
+        .models(toasty::models!(crate::*))
+        .connect("sqlite::memory:")
+        .await
+        .expect("Failed to connect to test database");
+
+    db.push_schema()
+        .await
+        .expect("Failed to sync test database schema");
+
+    app(db)
+}
+
 #[tokio::test]
 async fn test_index_handler() {
-    let app = app();
+    let app = setup_test_app().await;
 
     let response = app
         .oneshot(Request::builder().uri("/").body(Body::empty()).unwrap())
@@ -24,7 +38,7 @@ async fn test_index_handler() {
 
 #[tokio::test]
 async fn test_about_handler() {
-    let app = app();
+    let app = setup_test_app().await;
 
     let response = app
         .oneshot(
@@ -41,7 +55,7 @@ async fn test_about_handler() {
 
 #[tokio::test]
 async fn test_greet_handler() {
-    let app = app();
+    let app = setup_test_app().await;
 
     let response = app
         .oneshot(
@@ -64,7 +78,7 @@ async fn test_greet_handler() {
 
 #[tokio::test]
 async fn test_create_user_handle() {
-    let app = app();
+    let app = setup_test_app().await;
 
     let response = app
         .oneshot(
@@ -86,12 +100,13 @@ async fn test_create_user_handle() {
         .await
         .unwrap();
 
-    assert_eq!(&body[..], b"Created user: Isvane (isvane@testmail.com)");
+    // Adjusted to match your optimized, clone-free string response text
+    assert_eq!(&body[..], b"Created user successfully");
 }
 
 #[tokio::test]
 async fn test_list_users_handle() {
-    let app = app();
+    let app = setup_test_app().await;
 
     let response = app
         .oneshot(
@@ -109,14 +124,14 @@ async fn test_list_users_handle() {
         .await
         .unwrap();
 
-    let users: Vec<CreateUser> = serde_json::from_slice(&body).unwrap();
+    let users: Vec<User> = serde_json::from_slice(&body).unwrap();
 
     assert_eq!(users.len(), 0);
 }
 
 #[tokio::test]
 async fn test_list_items() {
-    let app = app();
+    let app = setup_test_app().await;
 
     let response = app
         .oneshot(
@@ -137,7 +152,7 @@ async fn test_list_items() {
 
 #[tokio::test]
 async fn test_validator_name() {
-    let app = app();
+    let app = setup_test_app().await;
 
     let response = app
         .oneshot(
@@ -166,7 +181,7 @@ async fn test_validator_name() {
 
 #[tokio::test]
 async fn test_validator_email() {
-    let app = app();
+    let app = setup_test_app().await;
 
     let response = app
         .oneshot(
