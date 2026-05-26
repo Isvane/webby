@@ -103,15 +103,28 @@ async fn main() {
         .with(tracing_subscriber::fmt::layer().without_time())
         .init();
 
+    let db_path = "./src/database/app.sqlite";
+    let db_dir = std::path::Path::new(db_path).parent().unwrap();
+
+    if let Err(e) = std::fs::create_dir_all(db_dir) {
+        eprintln!("Warning: Failed to create database directory: {}", e);
+    }
+
     let db = toasty::Db::builder()
         .models(toasty::models!(crate::*))
-        .connect("sqlite::memory:")
+        .connect(format!("sqlite:{}", db_path).as_str())
         .await
         .expect("Failed to connect to database");
 
-    db.push_schema()
-        .await
-        .expect("Failed to sync database schema");
+    match db.push_schema().await {
+        Ok(_) => println!("Database schema initialized"),
+        Err(e) => {
+            if !e.to_string().contains("already exist") {
+                panic!("Failed to sync database: {}", e)
+            }
+            println!("Schema already exists, skipping initialization");
+        }
+    }
 
     let app = app(db);
 
