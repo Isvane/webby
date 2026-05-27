@@ -3,7 +3,7 @@ use axum::{
     body::Body,
     http::{Request, StatusCode},
 };
-use tower::ServiceExt;
+use tower::{Service, ServiceExt};
 
 async fn setup_test_app() -> axum::Router {
     let db = toasty::Db::builder()
@@ -100,16 +100,84 @@ async fn test_create_user_handle() {
         .await
         .unwrap();
 
-    // Adjusted to match your optimized, clone-free string response text
     assert_eq!(&body[..], b"Created user successfully");
 }
 
 #[tokio::test]
-async fn test_list_users_handle() {
-    let app = setup_test_app().await;
+async fn test_delete_user_handle() {
+    let mut app = setup_test_app().await;
 
-    let response = app
-        .oneshot(
+    let response1 = app
+        .call(
+            Request::builder()
+                .method("POST")
+                .uri("/users/create")
+                .header("content-type", "application/json")
+                .body(Body::from(
+                    r#"{"name": "John", "email": "john@testmail.com"}"#,
+                ))
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+
+    assert_eq!(response1.status(), StatusCode::CREATED);
+
+    let response2 = app
+        .call(
+            Request::builder()
+                .method("DELETE")
+                .uri("/users/delete/1")
+                .body(Body::empty())
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+
+    assert_eq!(response2.status(), StatusCode::OK);
+
+    let body = axum::body::to_bytes(response2.into_body(), usize::MAX)
+        .await
+        .unwrap();
+
+    assert_eq!(&body[..], b"Deleted user: 1");
+
+    let response3 = app
+        .call(
+            Request::builder()
+                .method("DELETE")
+                .uri("/users/delete/1")
+                .body(Body::empty())
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+
+    assert_eq!(response3.status(), StatusCode::NOT_FOUND);
+}
+
+#[tokio::test]
+async fn test_list_users_handle() {
+    let mut app = setup_test_app().await;
+
+    let response1 = app
+        .call(
+            Request::builder()
+                .method("POST")
+                .uri("/users/create")
+                .header("content-type", "application/json")
+                .body(Body::from(
+                    r#"{"name": "John", "email": "john@testmail.com"}"#,
+                ))
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+
+    assert_eq!(response1.status(), StatusCode::CREATED);
+
+    let response2 = app
+        .call(
             Request::builder()
                 .uri("/users/list")
                 .body(Body::empty())
@@ -118,15 +186,15 @@ async fn test_list_users_handle() {
         .await
         .unwrap();
 
-    assert_eq!(response.status(), StatusCode::OK);
+    assert_eq!(response2.status(), StatusCode::OK);
 
-    let body = axum::body::to_bytes(response.into_body(), usize::MAX)
+    let body = axum::body::to_bytes(response2.into_body(), usize::MAX)
         .await
         .unwrap();
 
     let users: Vec<User> = serde_json::from_slice(&body).unwrap();
 
-    assert_eq!(users.len(), 0);
+    assert_eq!(users.len(), 1);
 }
 
 #[tokio::test]
