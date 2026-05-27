@@ -9,6 +9,7 @@ use serde::{Deserialize, Serialize};
 use std::sync::Arc;
 use std::time::Duration;
 use tokio::signal;
+use tower::limit::ConcurrencyLimitLayer;
 use tower_http::{
     services::{ServeDir, ServeFile},
     timeout::TimeoutLayer,
@@ -144,7 +145,8 @@ pub(crate) fn app(db: toasty::db::Db) -> Router {
         .route("/list", get(list_users))
         .route("/create", post(create_user))
         .route("/delete/{id}", delete(delete_user))
-        .route("/greet/{name}", get(greet_user));
+        .route("/greet/{name}", get(greet_user))
+        .layer(ConcurrencyLimitLayer::new(5));
 
     Router::new()
         .route("/", get(index))
@@ -172,6 +174,7 @@ async fn index() -> (StatusCode, &'static str) {
 }
 
 async fn about() -> (StatusCode, &'static str) {
+    tokio::time::sleep(std::time::Duration::from_secs(2)).await;
     (StatusCode::OK, "I'm the user")
 }
 async fn greet_user(Path(name): Path<String>) -> ApiResponse {
