@@ -231,11 +231,20 @@ async fn list_items(Query(pagination): Query<Pagination>) -> String {
     format!("Page {page}, {per_page} items")
 }
 
-async fn list_users(State(state): State<Arc<AppState>>) -> Result<ApiResponse, AppError> {
+async fn list_users(
+    State(state): State<Arc<AppState>>,
+    Query(pagination): Query<Pagination>,
+) -> Result<ApiResponse, AppError> {
     tracing::info!("Attempting to fetch user data");
     let mut db = state.db.clone();
 
-    let users = User::all().exec(&mut db).await?;
+    let _page = pagination.page.unwrap_or(1);
+    let per_page = pagination.per_page.unwrap_or(20);
+
+    let users = User::all()
+        .limit(per_page.try_into().unwrap())
+        .exec(&mut db)
+        .await?;
 
     Ok(ApiResponse::Json(users))
 }
