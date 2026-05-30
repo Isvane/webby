@@ -10,6 +10,7 @@ use std::sync::Arc;
 use std::time::Duration;
 use tokio::signal;
 use tower::limit::ConcurrencyLimitLayer;
+use tower_governor::{GovernorLayer, governor::GovernorConfigBuilder};
 use tower_http::{
     services::{ServeDir, ServeFile},
     timeout::TimeoutLayer,
@@ -131,14 +132,24 @@ async fn main() {
 
     let listener = tokio::net::TcpListener::bind("0.0.0.0:3000").await.unwrap();
     println!("Listening on http://localhost:3000");
-    axum::serve(listener, app)
-        .with_graceful_shutdown(shutdown_signal())
-        .await
-        .unwrap();
+    axum::serve(
+        listener,
+        app.into_make_service_with_connect_info::<std::net::SocketAddr>(),
+    )
+    .with_graceful_shutdown(shutdown_signal())
+    .await
+    .unwrap();
 }
 
 pub(crate) fn app(db: toasty::db::Db) -> Router {
     let state = Arc::new(AppState { db });
+
+    let governor_conf = GovernorConfigBuilder::default()
+        .per_second(2)
+        .burst_size(5)
+        .key_extractor(tower_governor::key_extractor::GlobalKeyExtractor)
+        .finish()
+        .unwrap();
 
     let user_routes = Router::new()
         .route("/", get(about))
@@ -166,6 +177,7 @@ pub(crate) fn app(db: toasty::db::Db) -> Router {
             }),
             TimeoutLayer::with_status_code(StatusCode::REQUEST_TIMEOUT, Duration::from_secs(10)),
         ))
+        .layer(GovernorLayer::new(governor_conf))
         .with_state(state)
 }
 
