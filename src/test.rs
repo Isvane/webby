@@ -1,4 +1,5 @@
 use super::*;
+use crate::models::User;
 use axum::{
     body::Body,
     http::{Request, StatusCode},
