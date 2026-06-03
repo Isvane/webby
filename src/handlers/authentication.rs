@@ -1,0 +1,22 @@
+use crate::auth::{AuthBody, AuthPayload, sign_token};
+use crate::errors::AuthError;
+use crate::models::{AppState, User};
+use axum::{Json, extract::State};
+use std::sync::Arc;
+
+pub async fn login(
+    State(state): State<Arc<AppState>>,
+    Json(payload): Json<AuthPayload>,
+) -> Result<Json<AuthBody>, AuthError> {
+    let mut db = state.db.clone();
+
+    let user = User::get_by_email(&mut db, &payload.email)
+        .await
+        .map_err(|_| AuthError::WrongCredentials)?;
+
+    let company_name = "Akatsuki".to_string();
+
+    let token = sign_token(user.id.to_string(), company_name)?;
+
+    Ok(Json(AuthBody::new(token)))
+}

@@ -16,6 +16,7 @@ use tower_http::{
 use tracing::info_span;
 use tracing_subscriber::{layer::SubscriberExt, util::SubscriberInitExt};
 
+mod auth;
 mod errors;
 mod handlers;
 mod models;
@@ -27,6 +28,8 @@ use models::AppState;
 
 #[tokio::main]
 async fn main() {
+    dotenvy::dotenv().ok();
+
     tracing_subscriber::registry()
         .with(
             tracing_subscriber::EnvFilter::try_from_default_env().unwrap_or_else(|_| {
@@ -98,6 +101,7 @@ pub(crate) fn app(db: toasty::db::Db) -> Router {
     Router::new()
         .route("/", get(handlers::items::index))
         .route("/pages", get(handlers::items::list_items))
+        .route("/login", post(handlers::authentication::login))
         .nest("/users", user_routes)
         .nest_service("/assets", ServeDir::new("public"))
         .fallback_service(

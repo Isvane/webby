@@ -4,6 +4,7 @@ use axum::{
     http::StatusCode,
     response::{IntoResponse, Response},
 };
+use serde_json::json;
 
 pub enum ApiResponse {
     Json(Vec<User>),
@@ -16,6 +17,27 @@ impl IntoResponse for ApiResponse {
             Self::Json(data) => (StatusCode::OK, Json(data)).into_response(),
             Self::Message(status, msg) => (status, msg).into_response(),
         }
+    }
+}
+
+#[derive(Debug)]
+pub enum AuthError {
+    WrongCredentials,
+    TokenCreation,
+    InvalidToken,
+}
+
+impl IntoResponse for AuthError {
+    fn into_response(self) -> Response {
+        let (status, error_message) = match self {
+            AuthError::WrongCredentials => (StatusCode::UNAUTHORIZED, "Wrong credentials"),
+            AuthError::TokenCreation => (StatusCode::INTERNAL_SERVER_ERROR, "Token creation error"),
+            AuthError::InvalidToken => (StatusCode::BAD_REQUEST, "Invalid token"),
+        };
+        let body = Json(json!( {
+            "error": error_message,
+        }));
+        (status, body).into_response()
     }
 }
 

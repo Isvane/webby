@@ -19,6 +19,7 @@ pub async fn greet_user(Path(name): Path<String>) -> ApiResponse {
 }
 
 pub async fn delete_user(
+    _claims: crate::auth::Claims,
     State(state): State<Arc<AppState>>,
     Path(id): Path<u64>,
 ) -> Result<ApiResponse, AppError> {
@@ -63,6 +64,7 @@ pub async fn create_user(
 }
 
 pub async fn list_users(
+    _claims: crate::auth::Claims,
     State(state): State<Arc<AppState>>,
     Query(pagination): Query<Pagination>,
 ) -> Result<ApiResponse, AppError> {
