@@ -10,7 +10,6 @@ use crate::errors::{ApiResponse, AppError};
 use crate::models::{AppState, CreateUser, Pagination, User};
 
 pub async fn about() -> (StatusCode, &'static str) {
-    tokio::time::sleep(std::time::Duration::from_secs(2)).await;
     (StatusCode::OK, "I'm the user")
 }
 
