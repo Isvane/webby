@@ -46,6 +46,7 @@ pub enum AppError {
     InvalidInput(String),
     UserNotFound(String),
     InternalDbError(String),
+    Forbidden(String),
 }
 
 impl IntoResponse for AppError {
@@ -55,6 +56,7 @@ impl IntoResponse for AppError {
             Self::InvalidInput(msg) => (StatusCode::UNPROCESSABLE_ENTITY, msg).into_response(),
             Self::UserNotFound(msg) => (StatusCode::NOT_FOUND, msg).into_response(),
             Self::InternalDbError(msg) => (StatusCode::INTERNAL_SERVER_ERROR, msg).into_response(),
+            Self::Forbidden(msg) => (StatusCode::FORBIDDEN, msg).into_response(),
         }
     }
 }

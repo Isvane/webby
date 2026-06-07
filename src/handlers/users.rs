@@ -18,15 +18,26 @@ pub async fn greet_user(Path(name): Path<String>) -> ApiResponse {
 }
 
 pub async fn delete_user(
-    _claims: crate::auth::Claims,
+    claims: crate::auth::Claims,
     State(state): State<Arc<AppState>>,
     Path(id): Path<u64>,
 ) -> Result<ApiResponse, AppError> {
+    let auth_id: u64 = claims
+        .sub
+        .parse()
+        .map_err(|_| AppError::Forbidden("Invalid user ID".to_string()))?;
+
+    if auth_id != id {
+        return Err(AppError::Forbidden(
+            "You do not have permission to delete this profile".to_string(),
+        ));
+    }
+
     let mut db = state.db.clone();
 
     let user = User::get_by_id(&mut db, &id)
         .await
-        .map_err(|_| AppError::UserNotFound("User with that ID not found".to_string()))?;
+        .map_err(|_| AppError::UserNotFound("User not found".to_string()))?;
 
     user.delete().exec(&mut db).await?;
 

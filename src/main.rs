@@ -89,7 +89,6 @@ pub(crate) fn app(db: toasty::db::Db) -> Router {
         .finish()
         .unwrap();
 
-    // Map handlers cleanly using the module hierarchy
     let user_routes = Router::new()
         .route("/", get(handlers::users::about))
         .route("/list", get(handlers::users::list_users))
