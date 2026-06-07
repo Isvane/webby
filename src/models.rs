@@ -27,3 +27,11 @@ pub(crate) struct CreateUser {
     #[validate(email(message = "Invalid email address"))]
     pub(crate) email: String,
 }
+
+#[derive(Deserialize, validator::Validate)]
+pub(crate) struct UpdateUser {
+    #[validate(length(min = 1, message = "Name cannot be empty"))]
+    pub(crate) name: String,
+    #[validate(email(message = "Invalid email address"))]
+    pub(crate) email: String,
+}

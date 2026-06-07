@@ -171,6 +171,52 @@ async fn test_delete_user_handle() {
 }
 
 #[tokio::test]
+async fn test_update_user_handle() {
+    let mut app = setup_test_app().await;
+
+    let response1 = app
+        .call(
+            Request::builder()
+                .method("POST")
+                .uri("/users/create")
+                .header("content-type", "application/json")
+                .body(Body::from(
+                    r#"{"name": "John", "email": "john@testmail.com"}"#,
+                ))
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+
+    assert_eq!(response1.status(), StatusCode::CREATED);
+
+    let token = get_test_token("1");
+
+    let response2 = app
+        .call(
+            Request::builder()
+                .method("PATCH")
+                .uri("/users/update/1")
+                .header("Authorization", format!("Bearer {}", token))
+                .header("content-type", "application/json")
+                .body(Body::from(
+                    r#"{"name": "Johny", "email": "john@testmail.com"}"#,
+                ))
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+
+    assert_eq!(response2.status(), StatusCode::OK);
+
+    let body = axum::body::to_bytes(response2.into_body(), usize::MAX)
+        .await
+        .unwrap();
+
+    assert_eq!(&body[..], b"Updated user: 1");
+}
+
+#[tokio::test]
 async fn test_list_users_handle() {
     let mut app = setup_test_app().await;
 

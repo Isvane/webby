@@ -1,7 +1,7 @@
 use axum::{
     Router,
     http::StatusCode,
-    routing::{delete, get, post},
+    routing::{delete, get, patch, post},
 };
 use std::sync::Arc;
 use std::time::Duration;
@@ -94,6 +94,7 @@ pub(crate) fn app(db: toasty::db::Db) -> Router {
         .route("/list", get(handlers::users::list_users))
         .route("/create", post(handlers::users::create_user))
         .route("/delete/{id}", delete(handlers::users::delete_user))
+        .route("/update/{id}", patch(handlers::users::update_users))
         .route("/greet/{name}", get(handlers::users::greet_user))
         .layer(ConcurrencyLimitLayer::new(5));
 

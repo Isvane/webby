@@ -6,8 +6,11 @@ use axum::{
 use std::sync::Arc;
 use validator::Validate;
 
-use crate::errors::{ApiResponse, AppError};
 use crate::models::{AppState, CreateUser, Pagination, User};
+use crate::{
+    errors::{ApiResponse, AppError},
+    models::UpdateUser,
+};
 
 pub async fn about() -> (StatusCode, &'static str) {
     (StatusCode::OK, "I'm the user")
@@ -70,6 +73,41 @@ pub async fn create_user(
     Ok(ApiResponse::Message(
         StatusCode::CREATED,
         "Created user successfully".to_string(),
+    ))
+}
+
+pub async fn update_users(
+    claims: crate::auth::Claims,
+    State(state): State<Arc<AppState>>,
+    Path(id): Path<u64>,
+    Json(payload): Json<UpdateUser>,
+) -> Result<ApiResponse, AppError> {
+    let auth_id: u64 = claims
+        .sub
+        .parse()
+        .map_err(|_| AppError::Forbidden("Invalid user ID".to_string()))?;
+
+    if auth_id != id {
+        return Err(AppError::Forbidden(
+            "You do not have permission to update this profile".to_string(),
+        ));
+    }
+
+    let mut db = state.db.clone();
+
+    let mut user = User::get_by_id(&mut db, &id)
+        .await
+        .map_err(|_| AppError::UserNotFound("User not found".to_string()))?;
+
+    user.update()
+        .name(payload.name)
+        .email(payload.email)
+        .exec(&mut db)
+        .await?;
+
+    Ok(ApiResponse::Message(
+        StatusCode::OK,
+        format!("Updated user: {id}"),
     ))
 }
 
