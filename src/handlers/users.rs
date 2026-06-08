@@ -6,6 +6,7 @@ use axum::{
 use std::sync::Arc;
 use validator::Validate;
 
+use crate::auth::hash_password;
 use crate::models::{AppState, CreateUser, Pagination, User};
 use crate::{
     errors::{ApiResponse, AppError},
@@ -67,8 +68,25 @@ pub async fn create_user(
         ));
     }
 
-    let CreateUser { name, email } = input;
-    let _new_user = toasty::create!(User { name, email }).exec(&mut db).await?;
+    let CreateUser {
+        name,
+        email,
+        password,
+    } = input;
+
+    let password_hash = hash_password(password.as_str())
+        .map_err(|e| AppError::InternalDbError(format!("Hashing failed: {}", e)))?;
+
+    let redacted_password = "REDACTED".to_string();
+
+    let _new_user = toasty::create!(User {
+        name,
+        email,
+        password: redacted_password,
+        password_hash,
+    })
+    .exec(&mut db)
+    .await?;
 
     Ok(ApiResponse::Message(
         StatusCode::CREATED,

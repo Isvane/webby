@@ -6,6 +6,8 @@ pub(crate) struct User {
     #[auto]
     pub(crate) id: u64,
     pub(crate) name: String,
+    pub(crate) password: String,
+    pub(crate) password_hash: String,
     #[unique]
     pub(crate) email: String,
 }
@@ -26,6 +28,8 @@ pub(crate) struct CreateUser {
     pub(crate) name: String,
     #[validate(email(message = "Invalid email address"))]
     pub(crate) email: String,
+    #[validate(length(min = 8, message = "Password have to be 8 character long minimum"))]
+    pub(crate) password: String,
 }
 
 #[derive(Deserialize, validator::Validate)]

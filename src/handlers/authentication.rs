@@ -1,4 +1,4 @@
-use crate::auth::{AuthBody, AuthPayload, sign_token};
+use crate::auth::{AuthBody, AuthPayload, sign_token, verify_password};
 use crate::errors::AuthError;
 use crate::models::{AppState, User};
 use axum::{Json, extract::State};
@@ -13,6 +13,11 @@ pub async fn login(
     let user = User::get_by_email(&mut db, &payload.email)
         .await
         .map_err(|_| AuthError::WrongCredentials)?;
+
+    verify_password(&payload.password, &user.password_hash).map_err(|e| match e {
+        AuthError::InvalidHashFormat => AuthError::InvalidHashFormat,
+        _ => AuthError::WrongCredentials,
+    })?;
 
     let company_name = "Akatsuki".to_string();
 
