@@ -77,12 +77,9 @@ pub async fn create_user(
     let password_hash = hash_password(password.as_str())
         .map_err(|e| AppError::InternalDbError(format!("Hashing failed: {}", e)))?;
 
-    let redacted_password = "REDACTED".to_string();
-
     let _new_user = toasty::create!(User {
         name,
         email,
-        password: redacted_password,
         password_hash,
     })
     .exec(&mut db)

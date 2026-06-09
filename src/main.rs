@@ -43,7 +43,7 @@ async fn main() {
         .with(tracing_subscriber::fmt::layer().without_time())
         .init();
 
-    let db_path = "./src/database/app.sqlite";
+    let db_path = "database/app.sqlite";
     let db_dir = std::path::Path::new(db_path).parent().unwrap();
 
     if let Err(e) = std::fs::create_dir_all(db_dir) {

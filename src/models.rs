@@ -6,7 +6,8 @@ pub(crate) struct User {
     #[auto]
     pub(crate) id: u64,
     pub(crate) name: String,
-    pub(crate) password: String,
+
+    #[serde(skip_serializing, default)]
     pub(crate) password_hash: String,
     #[unique]
     pub(crate) email: String,
