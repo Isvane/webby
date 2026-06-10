@@ -28,12 +28,13 @@ Webby is an asynchronous backend sandbox built to master building web services i
 | **GET** | `/` | Root Index | None |
 | **GET** | `/pages` | Query-driven list pagination | `Query<Pagination>` |
 | **POST**| `/login` | Authenticate user and issue JWT | `Json<AuthPayload>` |
-| **GET** | `/users/` | User section about (2s delay) | Concurrency Limited (Max 5) |
+| **GET** | `/users` | User section about (2s delay) | Concurrency Limited (Max 5) |
 | **GET** | `/users/list` | Asynchronously fetch all users | **Requires JWT (`Claims`)** |
 | **POST**| `/users/create` | Validate and insert new user | `Json<CreateUser>`, Concurrency Limited |
-| **DELETE**| `/users/delete/{id}` | Remove a specific user by ID | **Requires JWT ('Claims')**, `Path<u64>`, Concurrency Limited |
-| **GET** | `/users/greet/{name}` | Dynamic path injection | `Path<String>`, Concurrency Limited |
-| **ANY** | `/assets/*` / Fallback | Static asset server / SPA catch-all | `ServeDir` + `ServeFile` |
+| **PATCH**| `/users/update/{id}`| Update user profile | **Requires JWT (`Claims`)**, `Path<u64>`, `Json<UpdateUser>` |
+| **DELETE**| `/users/delete/{id}`| Remove a specific user by ID | **Requires JWT (`Claims`)**, `Path<u64>`, Concurrency Limited |
+| **GET** | `/users/greet/{name}`| Dynamic path injection | `Path<String>`, Concurrency Limited |
+| **ANY** | `/assets/*` / Fallback| Static asset server / SPA catch-all | `ServeDir` + `ServeFile` |
 
 ---
 
