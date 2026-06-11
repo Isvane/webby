@@ -19,7 +19,7 @@ pub async fn login(
         _ => AuthError::WrongCredentials,
     })?;
 
-    let company_name = "Akatsuki".to_string();
+    let company_name = user.company.clone();
 
     let token = sign_token(user.id.to_string(), company_name)?;
 

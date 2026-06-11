@@ -97,7 +97,7 @@ async fn test_create_user_handle() {
                 .uri("/users/create")
                 .header("content-type", "application/json")
                 .body(Body::from(
-                    r#"{"name": "Isvane", "email": "isvane@testmail.com", "password": "supersecurepassword123"}"#,
+                    r#"{"name": "Isvane", "email": "isvane@testmail.com", "password": "supersecurepassword123", "company": "Microsoft"}"#,
                 ))
                 .unwrap(),
         )
@@ -124,7 +124,7 @@ async fn test_delete_user_handle() {
                 .uri("/users/create")
                 .header("content-type", "application/json")
                 .body(Body::from(
-                    r#"{"name": "John", "email": "john@testmail.com", "password": "supersecurepassword123"}"#,
+                    r#"{"name": "Isvane", "email": "isvane@testmail.com", "password": "supersecurepassword123", "company": "Microsoft"}"#,
                 ))
                 .unwrap(),
         )
@@ -181,7 +181,7 @@ async fn test_update_user_handle() {
                 .uri("/users/create")
                 .header("content-type", "application/json")
                 .body(Body::from(
-                    r#"{"name": "John", "email": "john@testmail.com", "password": "supersecurepassword123"}"#,
+                    r#"{"name": "Isvane", "email": "isvane@testmail.com", "password": "supersecurepassword123", "company": "Microsoft"}"#,
                 ))
                 .unwrap(),
         )
@@ -227,7 +227,7 @@ async fn test_list_users_handle() {
                 .uri("/users/create")
                 .header("content-type", "application/json")
                 .body(Body::from(
-                    r#"{"name": "John", "email": "john@testmail.com", "password": "supersecurepassword123"}"#,
+                    r#"{"name": "Isvane", "email": "isvane@testmail.com", "password": "supersecurepassword123", "company": "Microsoft"}"#,
                 ))
                 .unwrap(),
         )
@@ -292,7 +292,7 @@ async fn test_validator_name() {
                 .uri("/users/create")
                 .header("content-type", "application/json")
                 .body(Body::from(
-                    r#"{"name": "", "email": "Isvane@testmail.com", "password": "supersecurepassword123"}"#,
+                    r#"{"name": "", "email": "isvane@testmail.com", "password": "supersecurepassword123", "company": "Microsoft"}"#,
                 ))
                 .unwrap(),
         )
@@ -321,7 +321,7 @@ async fn test_validator_email() {
                 .uri("/users/create")
                 .header("content-type", "application/json")
                 .body(Body::from(
-                    r#"{"name": "Isvane", "email": "not-email", "password": "supersecurepassword123"}"#,
+                    r#"{"name": "Isvane", "email": "not-email", "password": "supersecurepassword123", "company": "Microsoft"}"#,
                 ))
                 .unwrap(),
         )

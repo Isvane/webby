@@ -6,6 +6,7 @@ pub(crate) struct User {
     #[auto]
     pub(crate) id: u64,
     pub(crate) name: String,
+    pub(crate) company: String,
 
     #[serde(skip_serializing, default)]
     pub(crate) password_hash: String,
@@ -31,6 +32,7 @@ pub(crate) struct CreateUser {
     pub(crate) email: String,
     #[validate(length(min = 8, message = "Password have to be 8 character long minimum"))]
     pub(crate) password: String,
+    pub(crate) company: String,
 }
 
 #[derive(Deserialize, validator::Validate)]

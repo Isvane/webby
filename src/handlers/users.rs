@@ -72,6 +72,7 @@ pub async fn create_user(
         name,
         email,
         password,
+        company,
     } = input;
 
     let password_hash = hash_password(password.as_str())
@@ -81,6 +82,7 @@ pub async fn create_user(
         name,
         email,
         password_hash,
+        company,
     })
     .exec(&mut db)
     .await?;
