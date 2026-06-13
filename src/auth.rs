@@ -63,7 +63,7 @@ pub fn sign_token(user_id: String, company: String) -> Result<String, AuthError>
 
 impl Display for Claims {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(f, "Email: {}\nCompany: {}", self.sub, self.company)
+        write!(f, "ID: {}\nCompany: {}", self.sub, self.company)
     }
 }
 

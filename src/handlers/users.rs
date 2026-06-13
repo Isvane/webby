@@ -136,10 +136,14 @@ pub async fn list_users(
     tracing::info!("Attempting to fetch user data");
     let mut db = state.db.clone();
 
+    let page = pagination.page.unwrap_or(1);
     let per_page = pagination.per_page.unwrap_or(20);
+
+    let offset = if page > 0 { (page - 1) * per_page } else { 0 };
 
     let users = User::all()
         .limit(per_page.try_into().unwrap())
+        .offset(offset.try_into().unwrap())
         .exec(&mut db)
         .await?;
 
