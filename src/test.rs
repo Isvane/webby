@@ -8,13 +8,16 @@ use axum::{
 use tower::{Service, ServiceExt};
 
 fn get_test_token(user_id: &str) -> String {
-    sign_token(user_id.to_string(), "TestCompany".to_string()).expect("Failed to sign test token")
+    sign_token(
+        user_id.to_string(),
+        "TestCompany".to_string(),
+        models::Role::Admin,
+    )
+    .expect("Failed to sign test token")
 }
 
 async fn setup_test_app() -> axum::Router {
-    unsafe {
-        std::env::set_var("JWT_SECRET", "test_super_secret_key_123");
-    }
+    dotenvy::dotenv().ok();
 
     let db = toasty::Db::builder()
         .models(toasty::models!(crate::*))
@@ -241,7 +244,7 @@ async fn test_list_users_handle() {
     let response2 = app
         .call(
             Request::builder()
-                .uri("/users/list")
+                .uri("/admin/list")
                 .header("Authorization", format!("Bearer {}", token))
                 .body(Body::empty())
                 .unwrap(),

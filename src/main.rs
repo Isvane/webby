@@ -1,6 +1,7 @@
 use axum::{
     Router,
     http::StatusCode,
+    middleware,
     routing::{delete, get, patch, post},
 };
 use std::sync::Arc;
@@ -91,17 +92,23 @@ pub(crate) fn app(db: toasty::db::Db) -> Router {
 
     let user_routes = Router::new()
         .route("/", get(handlers::users::about))
-        .route("/list", get(handlers::users::list_users))
         .route("/create", post(handlers::users::create_user))
         .route("/delete/{id}", delete(handlers::users::delete_user))
         .route("/update/{id}", patch(handlers::users::update_users))
         .route("/greet/{name}", get(handlers::users::greet_user))
         .layer(ConcurrencyLimitLayer::new(5));
 
+    let admin_routes = Router::new()
+        .route("/list", get(handlers::users::list_users))
+        .route_layer(middleware::from_fn(|c, r, n| {
+            auth::require_role(models::Role::Admin, c, r, n)
+        }));
+
     Router::new()
         .route("/", get(handlers::items::index))
         .route("/pages", get(handlers::items::list_items))
         .route("/login", post(handlers::authentication::login))
+        .nest("/admin", admin_routes)
         .nest("/users", user_routes)
         .nest_service("/assets", ServeDir::new("public"))
         .fallback_service(

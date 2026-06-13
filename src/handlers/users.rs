@@ -7,7 +7,7 @@ use std::sync::Arc;
 use validator::Validate;
 
 use crate::auth::hash_password;
-use crate::models::{AppState, CreateUser, Pagination, User};
+use crate::models::{AppState, CreateUser, Pagination, Role, User};
 use crate::{
     errors::{ApiResponse, AppError},
     models::UpdateUser,
@@ -73,16 +73,20 @@ pub async fn create_user(
         email,
         password,
         company,
+        role,
     } = input;
 
     let password_hash = hash_password(password.as_str())
         .map_err(|e| AppError::InternalDbError(format!("Hashing failed: {}", e)))?;
+
+    let role = role.unwrap_or(Role::User);
 
     let _new_user = toasty::create!(User {
         name,
         email,
         password_hash,
         company,
+        role,
     })
     .exec(&mut db)
     .await?;

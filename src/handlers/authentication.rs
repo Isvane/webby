@@ -20,8 +20,9 @@ pub async fn login(
     })?;
 
     let company_name = user.company.clone();
+    let role = user.role;
 
-    let token = sign_token(user.id.to_string(), company_name)?;
+    let token = sign_token(user.id.to_string(), company_name, role)?;
 
     Ok(Json(AuthBody::new(token)))
 }

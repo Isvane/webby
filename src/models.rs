@@ -1,5 +1,13 @@
 use serde::{Deserialize, Serialize};
 
+#[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Eq, toasty::Embed)]
+#[serde(rename_all = "lowercase")]
+pub enum Role {
+    Admin,
+    Owner,
+    User,
+}
+
 #[derive(Debug, toasty::Model, Serialize, Deserialize, Clone)]
 pub(crate) struct User {
     #[key]
@@ -7,6 +15,7 @@ pub(crate) struct User {
     pub(crate) id: u64,
     pub(crate) name: String,
     pub(crate) company: String,
+    pub(crate) role: Role,
 
     #[serde(skip_serializing, default)]
     pub(crate) password_hash: String,
@@ -33,6 +42,7 @@ pub(crate) struct CreateUser {
     #[validate(length(min = 8, message = "Password have to be 8 character long minimum"))]
     pub(crate) password: String,
     pub(crate) company: String,
+    pub(crate) role: Option<Role>,
 }
 
 #[derive(Deserialize, validator::Validate)]

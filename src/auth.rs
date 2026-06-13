@@ -1,5 +1,7 @@
 use argon2::{Argon2, PasswordHash, PasswordHasher, PasswordVerifier, password_hash::SaltString};
-use axum::{RequestPartsExt, extract::FromRequestParts};
+use axum::{
+    RequestPartsExt, extract::FromRequestParts, http::Request, middleware::Next, response::Response,
+};
 use axum_extra::{
     TypedHeader,
     headers::{Authorization, authorization::Bearer},
@@ -8,7 +10,8 @@ use jsonwebtoken::{DecodingKey, EncodingKey, Header, Validation, decode, encode}
 use serde::{Deserialize, Serialize};
 use std::{fmt::Display, sync::LazyLock};
 
-use crate::errors::AuthError;
+use crate::errors::{AppError, AuthError};
+use crate::models::Role;
 
 static KEYS: LazyLock<Keys> = LazyLock::new(|| {
     let secret = std::env::var("JWT_SECRET").expect("JWT_SECRET must be set");
@@ -19,6 +22,7 @@ static KEYS: LazyLock<Keys> = LazyLock::new(|| {
 pub(crate) struct Claims {
     pub(crate) sub: String,
     company: String,
+    role: Role,
     exp: u64,
 }
 
@@ -44,7 +48,20 @@ where
     }
 }
 
-pub fn sign_token(user_id: String, company: String) -> Result<String, AuthError> {
+pub async fn require_role(
+    required_role: Role,
+    claims: Claims,
+    request: Request<axum::body::Body>,
+    next: Next,
+) -> Result<Response, AppError> {
+    if claims.role == required_role {
+        Ok(next.run(request).await)
+    } else {
+        Err(AppError::Forbidden("Forbidden".to_string()))
+    }
+}
+
+pub fn sign_token(user_id: String, company: String, role: Role) -> Result<String, AuthError> {
     let now = std::time::SystemTime::now()
         .duration_since(std::time::UNIX_EPOCH)
         .map_err(|_| AuthError::TokenCreation)?
@@ -55,6 +72,7 @@ pub fn sign_token(user_id: String, company: String) -> Result<String, AuthError>
     let claims = Claims {
         sub: user_id,
         company,
+        role,
         exp: expiration,
     };
 
