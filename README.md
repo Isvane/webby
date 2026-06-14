@@ -7,13 +7,15 @@ Webby is an asynchronous backend sandbox built to master building web services i
 * **Language & Framework**: Rust + Axum
 * **Runtime & Ecosystem**: Tokio + Tower + Tower-HTTP
 * **Database & Configuration**: Toasty ORM (SQLite) + Dotenvy
+* **Security & Crypto**: JSON Web Tokens (`jsonwebtoken`) + Argon2 Password Hashing (`argon2`)
 
 ---
 
 ## Core Learning Highlights
 
 * **State & DB Management**: Thread-safe database connection sharing via `Arc<AppState>` using the **Toasty** ORM against SQLite.
-* **JWT Authentication**: Custom `FromRequestParts` extractor to decode, validate, and secure routes using JSON Web Tokens (HS256).
+* **JWT Authentication & RBAC**: Custom `FromRequestParts` extractor to decode, validate, and secure routes using JSON Web Tokens (HS256), paired with Role-Based Access Control middleware.
+* **Cryptographic Password Hashing**: Secure password management using the **Argon2** hashing algorithm with automated salt generation via `OsRng`.
 * **Traffic Control & Middleware**: Structured logging (`TraceLayer`), request timeouts (`TimeoutLayer`), concurrency bounds (`ConcurrencyLimitLayer`), and rate limiting (`GovernorLayer`).
 * **Input Validation & Errors**: Chaining the `validator` crate into the Axum pipeline and transforming internal app logic into structured HTTP responses via custom `IntoResponse` enums.
 * **SPA Routing**: Serving physical assets with `ServeDir` and catching unmatched traffic with an `index.html` fallback.
@@ -28,15 +30,16 @@ Webby is an asynchronous backend sandbox built to master building web services i
 | **GET** | `/` | Root Index | None |
 | **GET** | `/pages` | Query-driven list pagination | `Query<Pagination>` |
 | **POST**| `/login` | Authenticate user and issue JWT | `Json<AuthPayload>` |
-| **GET** | `/users` | User section about (2s delay) | Concurrency Limited (Max 5) |
-| **GET** | `/users/list` | Asynchronously fetch all users | **Requires JWT (`Claims`)** |
+| **GET** | `/users` | User section about | Concurrency Limited (Max 5) |
 | **POST**| `/users/create` | Validate and insert new user | `Json<CreateUser>`, Concurrency Limited |
 | **PATCH**| `/users/update/{id}`| Update user profile | **Requires JWT (`Claims`)**, `Path<u64>`, `Json<UpdateUser>` |
 | **DELETE**| `/users/delete/{id}`| Remove a specific user by ID | **Requires JWT (`Claims`)**, `Path<u64>`, Concurrency Limited |
 | **GET** | `/users/greet/{name}`| Dynamic path injection | `Path<String>`, Concurrency Limited |
+| **GET** | `/admin/list` | Asynchronously fetch all users | **Requires JWT (`Claims`)** + **Admin Role Middleware** |
 | **ANY** | `/assets/*` / Fallback| Static asset server / SPA catch-all | `ServeDir` + `ServeFile` |
 
 ---
+
 
 ## Getting Started
 

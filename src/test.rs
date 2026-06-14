@@ -17,7 +17,9 @@ fn get_test_token(user_id: &str) -> String {
 }
 
 async fn setup_test_app() -> axum::Router {
-    dotenvy::dotenv().ok();
+    unsafe {
+        std::env::set_var("JWT_SECRET", "test_super_secret_key_123");
+    }
 
     let db = toasty::Db::builder()
         .models(toasty::models!(crate::*))
