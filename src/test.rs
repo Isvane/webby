@@ -343,3 +343,90 @@ async fn test_validator_email() {
 
     assert!(body_string.contains("Invalid email address"));
 }
+
+#[tokio::test]
+async fn test_change_user_role_success_as_admin() {
+    let mut app = setup_test_app().await;
+
+    let response1 = app
+        .call(
+            Request::builder()
+                .method("POST")
+                .uri("/users/create")
+                .header("content-type", "application/json")
+                .body(Body::from(
+                    r#"{"name": "Regular User", "email": "regular@testmail.com", "password": "password123", "company": "Microsoft"}"#,
+                ))
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+
+    assert_eq!(response1.status(), StatusCode::CREATED);
+
+    let admin_token = get_test_token("2");
+
+    let response2 = app
+        .call(
+            Request::builder()
+                .method("PATCH")
+                .uri("/admin/1/role")
+                .header("Authorization", format!("Bearer {}", admin_token))
+                .header("content-type", "application/json")
+                .body(Body::from(r#"{"role": "admin"}"#))
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+
+    assert_eq!(response2.status(), StatusCode::OK);
+
+    let body = axum::body::to_bytes(response2.into_body(), usize::MAX)
+        .await
+        .unwrap();
+
+    assert_eq!(&body[..], b"Role updated");
+}
+
+#[tokio::test]
+async fn test_change_user_role_forbidden_as_regular_user() {
+    let mut app = setup_test_app().await;
+
+    let response1 = app
+        .call(
+            Request::builder()
+                .method("POST")
+                .uri("/users/create")
+                .header("content-type", "application/json")
+                .body(Body::from(
+                    r#"{"name": "Regular User", "email": "regular@testmail.com", "password": "password123", "company": "Microsoft"}"#,
+                ))
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+
+    assert_eq!(response1.status(), StatusCode::CREATED);
+
+    let user_token = crate::auth::sign_token(
+        "1".to_string(),
+        "TestCompany".to_string(),
+        models::Role::User,
+    )
+    .expect("Failed to sign test token");
+
+    let response2 = app
+        .call(
+            Request::builder()
+                .method("PATCH")
+                .uri("/admin/1/role")
+                .header("Authorization", format!("Bearer {}", user_token))
+                .header("content-type", "application/json")
+                .body(Body::from(r#"{"role": "admin"}"#))
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+
+    assert_eq!(response2.status(), StatusCode::FORBIDDEN);
+}

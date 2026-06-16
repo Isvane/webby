@@ -52,3 +52,8 @@ pub(crate) struct UpdateUser {
     #[validate(email(message = "Invalid email address"))]
     pub(crate) email: String,
 }
+
+#[derive(Deserialize)]
+pub(crate) struct ChangeRolePayload {
+    pub(crate) role: Role,
+}

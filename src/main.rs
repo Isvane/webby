@@ -99,7 +99,8 @@ pub(crate) fn app(db: toasty::db::Db) -> Router {
         .layer(ConcurrencyLimitLayer::new(5));
 
     let admin_routes = Router::new()
-        .route("/list", get(handlers::users::list_users))
+        .route("/list", get(handlers::admin::list_users))
+        .route("/{id}/role", patch(handlers::admin::change_user_role))
         .route_layer(middleware::from_fn(|c, r, n| {
             auth::require_role(models::Role::Admin, c, r, n)
         }));

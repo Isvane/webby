@@ -1,13 +1,13 @@
 use axum::{
     Json,
-    extract::{Path, Query, State},
+    extract::{Path, State},
     http::StatusCode,
 };
 use std::sync::Arc;
 use validator::Validate;
 
 use crate::auth::hash_password;
-use crate::models::{AppState, CreateUser, Pagination, Role, User};
+use crate::models::{AppState, CreateUser, Role, User};
 use crate::{
     errors::{ApiResponse, AppError},
     models::UpdateUser,
@@ -73,13 +73,13 @@ pub async fn create_user(
         email,
         password,
         company,
-        role,
+        role: _input_role,
     } = input;
 
     let password_hash = hash_password(password.as_str())
         .map_err(|e| AppError::InternalDbError(format!("Hashing failed: {}", e)))?;
 
-    let role = role.unwrap_or(Role::User);
+    let role = Role::User;
 
     let _new_user = toasty::create!(User {
         name,
@@ -130,26 +130,4 @@ pub async fn update_users(
         StatusCode::OK,
         format!("Updated user: {id}"),
     ))
-}
-
-pub async fn list_users(
-    _claims: crate::auth::Claims,
-    State(state): State<Arc<AppState>>,
-    Query(pagination): Query<Pagination>,
-) -> Result<ApiResponse, AppError> {
-    tracing::info!("Attempting to fetch user data");
-    let mut db = state.db.clone();
-
-    let page = pagination.page.unwrap_or(1);
-    let per_page = pagination.per_page.unwrap_or(20);
-
-    let offset = if page > 0 { (page - 1) * per_page } else { 0 };
-
-    let users = User::all()
-        .limit(per_page.try_into().unwrap())
-        .offset(offset.try_into().unwrap())
-        .exec(&mut db)
-        .await?;
-
-    Ok(ApiResponse::Json(users))
 }
