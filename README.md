@@ -1,25 +1,19 @@
 # Webby
 
-Webby is an asynchronous backend sandbox built to master building web services in Rust using Axum, Tokio, and Tower. It serves as a hands-on laboratory for managing shared state, integrating databases, and writing custom type-safe middleware.
+An asynchronous backend sandbox built to master production-grade web services in `Rust`. 
 
-## The Tech Stack
-
-* **Language & Framework**: Rust + Axum
-* **Runtime & Ecosystem**: Tokio + Tower + Tower-HTTP
-* **Database & Configuration**: Toasty ORM (SQLite) + Dotenvy
-* **Security & Crypto**: JSON Web Tokens (`jsonwebtoken`) + Argon2 Password Hashing (`argon2`)
+## Why Webby?
+Reading documentation only takes you so far. `Webby` is a hands-on laboratory designed to bridge the gap between "Hello World" tutorials and production realities. It serves as a playground to wrestle with `async` state, write type-safe middleware, and understand how the `Tokio` and `Tower` ecosystem handles traffic under the hood.
 
 ---
 
-## Core Learning Highlights
+## Core Learning Takeaways
 
-* **State & DB Management**: Thread-safe database connection sharing via `Arc<AppState>` using the **Toasty** ORM against SQLite.
-* **JWT Authentication & RBAC**: Custom `FromRequestParts` extractor to decode, validate, and secure routes using JSON Web Tokens (HS256), paired with Role-Based Access Control middleware.
-* **Cryptographic Password Hashing**: Secure password management using the **Argon2** hashing algorithm with automated salt generation via `OsRng`.
-* **Traffic Control & Middleware**: Structured logging (`TraceLayer`), request timeouts (`TimeoutLayer`), concurrency bounds (`ConcurrencyLimitLayer`), and rate limiting (`GovernorLayer`).
-* **Input Validation & Errors**: Chaining the `validator` crate into the Axum pipeline and transforming internal app logic into structured HTTP responses via custom `IntoResponse` enums.
-* **SPA Routing**: Serving physical assets with `ServeDir` and catching unmatched traffic with an `index.html` fallback.
-* **Graceful Shutdowns**: Listening for cross-platform OS signals (`SIGINT`/`SIGTERM`) to drop the runtime safely.
+* **Thread-Safe State & Static Keys:** Sharing database connection pools via `Arc<AppState>` combined with modern `std::sync::LazyLock` for zero-overhead, safe lazy initialization of cryptographic keys.
+* **Type-Safe Extraction & RBAC:** Leveraging `axum_extra::TypedHeader` to extract Bearer tokens directly from request parts, parsing them into verifiable `Claims` before routes are executed, paired with granular role-matching middleware (`require_role`).
+* **Socketless Integration Testing:** Testing the entire HTTP pipeline natively in-memory without binding to a physical TCP port. Uses `tower::Service` utilities (`oneshot`/`call`) combined with an ephemeral `sqlite::memory:` schema instantiation for instantaneous, deterministic testing.
+* **Defensive Traffic Control:** Layering Tower middleware to handle global rate-limiting (`GovernorLayer`), request timeouts (`TimeoutLayer`), and concurrency limits.
+* **Declarative Payload Validation:** Binding the `validator` crate directly to incoming deserialization pipelines to sanitize names, string boundaries, and email patterns before hitting domain logic.
 
 ---
 
@@ -30,16 +24,21 @@ Webby is an asynchronous backend sandbox built to master building web services i
 | **GET** | `/` | Root Index | None |
 | **GET** | `/pages` | Query-driven list pagination | `Query<Pagination>` |
 | **POST**| `/login` | Authenticate user and issue JWT | `Json<AuthPayload>` |
-| **GET** | `/users` | User section about | Concurrency Limited (Max 5) |
-| **POST**| `/users/create` | Validate and insert new user | `Json<CreateUser>`, Concurrency Limited |
-| **PATCH**| `/users/update/{id}`| Update user profile | **Requires JWT (`Claims`)**, `Path<u64>`, `Json<UpdateUser>` |
-| **DELETE**| `/users/delete/{id}`| Remove a specific user by ID | **Requires JWT (`Claims`)**, `Path<u64>`, Concurrency Limited |
-| **GET** | `/users/greet/{name}`| Dynamic path injection | `Path<String>`, Concurrency Limited |
-| **GET** | `/admin/list` | Asynchronously fetch all users | **Requires JWT (`Claims`)** + **Admin Role Middleware** |
-| **ANY** | `/assets/*` / Fallback| Static asset server / SPA catch-all | `ServeDir` + `ServeFile` |
+| **GET** | `/users/` | User section about | Concurrency Limited (Max 5) |
+| **POST**| `/users/create` | Validate and insert new user | `Json<CreateUser>`, Concurrency Limited (Max 5) |
+| **PATCH**| `/users/update/{id}` | Update user profile | **Requires JWT (`Claims`)**, `Path<u64>`, `Json<UpdateUser>`, Concurrency Limited (Max 5) |
+| **DELETE**| `/users/delete/{id}` | Remove a specific user by ID | **Requires JWT (`Claims`)**, `Path<u64>`, Concurrency Limited (Max 5) |
+| **GET** | `/users/greet/{name}` | Dynamic path injection | `Path<String>`, Concurrency Limited (Max 5) |
+| **GET** | `/admin/list` | Asynchronously fetch all users | **Requires JWT (`Claims`)**, `Query<Pagination>`, Admin Role Middleware |
+| **PATCH**| `/admin/{id}/role` | Modify a user's access role level | **Requires JWT (`Claims`)**, `Path<u64>`, `Json<ChangeRolePayload>`, Admin Role Middleware |
+| **ANY** | `/assets/*` / Fallback | Static asset server / SPA catch-all | `ServeDir` ("public") + `ServeFile` ("public/index.html") |
+
+> **Global Middleware Layers Applied:** 
+> * **Rate Limiting:** `GovernorLayer` (2 req/sec, burst size 5) using client IP tracking.
+> * **Timeouts:** `TimeoutLayer` enforcing a strict 10-second request termination limit.
+> * **Observability:** `TraceLayer` capture via `tracing` for structured HTTP request metrics.
 
 ---
-
 
 ## Getting Started
 
@@ -55,5 +54,5 @@ cargo run
 ```
 ### 3. Run Test
 ```bash
-JWT_SECRET=test_secret cargo test
+cargo test
 ```
