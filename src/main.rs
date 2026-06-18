@@ -86,7 +86,7 @@ pub(crate) fn app(db: toasty::db::Db) -> Router {
     let governor_conf = GovernorConfigBuilder::default()
         .per_second(2)
         .burst_size(5)
-        .key_extractor(tower_governor::key_extractor::GlobalKeyExtractor)
+        .key_extractor(tower_governor::key_extractor::SmartIpKeyExtractor)
         .finish()
         .unwrap();
 

@@ -3,9 +3,19 @@ use crate::auth::sign_token;
 use crate::models::User;
 use axum::{
     body::Body,
+    extract::ConnectInfo,
     http::{Request, StatusCode},
 };
+use std::net::SocketAddr;
 use tower::{Service, ServiceExt};
+
+fn create_test_request(method: &str, uri: &str) -> axum::http::request::Builder {
+    let peer_addr: SocketAddr = "127.0.0.1:8080".parse().unwrap();
+    Request::builder()
+        .method(method)
+        .uri(uri)
+        .extension(ConnectInfo(peer_addr))
+}
 
 fn get_test_token(user_id: &str) -> String {
     sign_token(
@@ -39,7 +49,7 @@ async fn test_index_handler() {
     let app = setup_test_app().await;
 
     let response = app
-        .oneshot(Request::builder().uri("/").body(Body::empty()).unwrap())
+        .oneshot(create_test_request("GET", "/").body(Body::empty()).unwrap())
         .await
         .unwrap();
 
@@ -57,8 +67,7 @@ async fn test_about_handler() {
 
     let response = app
         .oneshot(
-            Request::builder()
-                .uri("/users")
+            create_test_request("GET", "/users")
                 .body(Body::empty())
                 .unwrap(),
         )
@@ -74,8 +83,7 @@ async fn test_greet_handler() {
 
     let response = app
         .oneshot(
-            Request::builder()
-                .uri("/users/greet/isvane")
+            create_test_request("GET", "/users/greet/isvane")
                 .body(Body::empty())
                 .unwrap(),
         )
@@ -97,9 +105,7 @@ async fn test_create_user_handle() {
 
     let response = app
         .oneshot(
-            Request::builder()
-                .method("POST")
-                .uri("/users/create")
+            create_test_request("POST", "/users/create")
                 .header("content-type", "application/json")
                 .body(Body::from(
                     r#"{"name": "Isvane", "email": "isvane@testmail.com", "password": "supersecurepassword123", "company": "Microsoft"}"#,
@@ -124,9 +130,7 @@ async fn test_delete_user_handle() {
 
     let response1 = app
         .call(
-            Request::builder()
-                .method("POST")
-                .uri("/users/create")
+            create_test_request("POST", "/users/create")
                 .header("content-type", "application/json")
                 .body(Body::from(
                     r#"{"name": "Isvane", "email": "isvane@testmail.com", "password": "supersecurepassword123", "company": "Microsoft"}"#,
@@ -142,9 +146,7 @@ async fn test_delete_user_handle() {
 
     let response2 = app
         .call(
-            Request::builder()
-                .method("DELETE")
-                .uri("/users/delete/1")
+            create_test_request("DELETE", "/users/delete/1")
                 .header("Authorization", format!("Bearer {}", token))
                 .body(Body::empty())
                 .unwrap(),
@@ -162,9 +164,7 @@ async fn test_delete_user_handle() {
 
     let response3 = app
         .call(
-            Request::builder()
-                .method("DELETE")
-                .uri("/users/delete/1")
+            create_test_request("DELETE", "/users/delete/1")
                 .header("Authorization", format!("Bearer {}", token))
                 .body(Body::empty())
                 .unwrap(),
@@ -181,9 +181,7 @@ async fn test_update_user_handle() {
 
     let response1 = app
         .call(
-            Request::builder()
-                .method("POST")
-                .uri("/users/create")
+            create_test_request("POST", "/users/create")
                 .header("content-type", "application/json")
                 .body(Body::from(
                     r#"{"name": "Isvane", "email": "isvane@testmail.com", "password": "supersecurepassword123", "company": "Microsoft"}"#,
@@ -199,9 +197,7 @@ async fn test_update_user_handle() {
 
     let response2 = app
         .call(
-            Request::builder()
-                .method("PATCH")
-                .uri("/users/update/1")
+            create_test_request("PATCH", "/users/update/1")
                 .header("Authorization", format!("Bearer {}", token))
                 .header("content-type", "application/json")
                 .body(Body::from(
@@ -227,9 +223,7 @@ async fn test_list_users_handle() {
 
     let response1 = app
         .call(
-            Request::builder()
-                .method("POST")
-                .uri("/users/create")
+            create_test_request("POST", "/users/create")
                 .header("content-type", "application/json")
                 .body(Body::from(
                     r#"{"name": "Isvane", "email": "isvane@testmail.com", "password": "supersecurepassword123", "company": "Microsoft"}"#,
@@ -245,8 +239,7 @@ async fn test_list_users_handle() {
 
     let response2 = app
         .call(
-            Request::builder()
-                .uri("/admin/list")
+            create_test_request("GET", "/admin/list")
                 .header("Authorization", format!("Bearer {}", token))
                 .body(Body::empty())
                 .unwrap(),
@@ -271,8 +264,7 @@ async fn test_list_items() {
 
     let response = app
         .oneshot(
-            Request::builder()
-                .uri("/pages?page=2&per_page=50")
+            create_test_request("GET", "/pages?page=2&per_page=50")
                 .body(Body::empty())
                 .unwrap(),
         )
@@ -292,9 +284,7 @@ async fn test_validator_name() {
 
     let response = app
         .oneshot(
-            Request::builder()
-                .method("POST")
-                .uri("/users/create")
+            create_test_request("POST", "/users/create")
                 .header("content-type", "application/json")
                 .body(Body::from(
                     r#"{"name": "", "email": "isvane@testmail.com", "password": "supersecurepassword123", "company": "Microsoft"}"#,
@@ -321,9 +311,7 @@ async fn test_validator_email() {
 
     let response = app
         .oneshot(
-            Request::builder()
-                .method("POST")
-                .uri("/users/create")
+            create_test_request("POST", "/users/create")
                 .header("content-type", "application/json")
                 .body(Body::from(
                     r#"{"name": "Isvane", "email": "not-email", "password": "supersecurepassword123", "company": "Microsoft"}"#,
@@ -350,9 +338,7 @@ async fn test_change_user_role_success_as_admin() {
 
     let response1 = app
         .call(
-            Request::builder()
-                .method("POST")
-                .uri("/users/create")
+            create_test_request("POST", "/users/create")
                 .header("content-type", "application/json")
                 .body(Body::from(
                     r#"{"name": "Regular User", "email": "regular@testmail.com", "password": "password123", "company": "Microsoft"}"#,
@@ -368,9 +354,7 @@ async fn test_change_user_role_success_as_admin() {
 
     let response2 = app
         .call(
-            Request::builder()
-                .method("PATCH")
-                .uri("/admin/1/role")
+            create_test_request("PATCH", "/admin/1/role")
                 .header("Authorization", format!("Bearer {}", admin_token))
                 .header("content-type", "application/json")
                 .body(Body::from(r#"{"role": "admin"}"#))
@@ -394,9 +378,7 @@ async fn test_change_user_role_forbidden_as_regular_user() {
 
     let response1 = app
         .call(
-            Request::builder()
-                .method("POST")
-                .uri("/users/create")
+            create_test_request("POST", "/users/create")
                 .header("content-type", "application/json")
                 .body(Body::from(
                     r#"{"name": "Regular User", "email": "regular@testmail.com", "password": "password123", "company": "Microsoft"}"#,
@@ -417,9 +399,7 @@ async fn test_change_user_role_forbidden_as_regular_user() {
 
     let response2 = app
         .call(
-            Request::builder()
-                .method("PATCH")
-                .uri("/admin/1/role")
+            create_test_request("PATCH", "/admin/1/role")
                 .header("Authorization", format!("Bearer {}", user_token))
                 .header("content-type", "application/json")
                 .body(Body::from(r#"{"role": "admin"}"#))
