@@ -44,16 +44,11 @@ async fn main() {
         .with(tracing_subscriber::fmt::layer().without_time())
         .init();
 
-    let db_path = "database/app.sqlite";
-    let db_dir = std::path::Path::new(db_path).parent().unwrap();
-
-    if let Err(e) = std::fs::create_dir_all(db_dir) {
-        eprintln!("Warning: Failed to create database directory: {}", e);
-    }
+    let database_url = std::env::var("DATABASE_URL").unwrap();
 
     let db = toasty::Db::builder()
         .models(toasty::models!(crate::*))
-        .connect(format!("sqlite:{}", db_path).as_str())
+        .connect(&database_url)
         .await
         .expect("Failed to connect to database");
 
